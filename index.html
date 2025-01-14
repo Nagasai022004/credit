@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Card Bill Calculator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="number"], input[type="date"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        .result {
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Credit Card Bill Calculator</h1>
+        <label for="user-name">User Name:</label>
+        <input type="text" id="user-name" placeholder="Enter user name">
+
+        <label for="due-date">Due Date:</label>
+        <input type="date" id="due-date">
+
+        <label for="transaction-name">Transaction Name:</label>
+        <input type="text" id="transaction-name" placeholder="Enter transaction name">
+
+        <label for="transaction-amount">Transaction Amount:</label>
+        <input type="number" id="transaction-amount" placeholder="Enter amount">
+
+        <button onclick="addTransaction()">Add Transaction</button>
+        <button onclick="printTransactions()">Print Transactions</button>
+        <button onclick="generatePDF()">Download PDF</button>
+
+        <table id="transactions-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Transaction Name</th>
+                    <th>Amount (₹)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <div id="total-amount" class="result"></div>
+    </div>
+
+    <script>
+        const transactions = [];
+
+        function addTransaction() {
+            const transactionName = document.getElementById('transaction-name').value;
+            const transactionAmount = parseFloat(document.getElementById('transaction-amount').value);
+
+            if (!transactionName || isNaN(transactionAmount) || transactionAmount <= 0) {
+                alert('Please enter a valid transaction name and amount.');
+                return;
+            }
+
+            transactions.push({ name: transactionName, amount: transactionAmount });
+
+            // Clear input fields
+            document.getElementById('transaction-name').value = '';
+            document.getElementById('transaction-amount').value = '';
+        }
+
+        function printTransactions() {
+            const table = document.getElementById('transactions-table');
+            const tbody = table.querySelector('tbody');
+            tbody.innerHTML = ''; // Clear previous rows
+
+            if (transactions.length === 0) {
+                alert('No transactions to display.');
+                return;
+            }
+
+            transactions.forEach((transaction, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${transaction.name}</td>
+                    <td>₹${transaction.amount.toFixed(2)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            const totalAmount = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+
+            document.getElementById('total-amount').innerText = `Total Amount: ₹${totalAmount.toFixed(2)}`;
+            table.style.display = 'table';
+        }
+
+        async function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            const userName = document.getElementById('user-name').value || 'Unnamed User';
+            const dueDate = document.getElementById('due-date').value || 'No Due Date';
+
+            if (transactions.length === 0) {
+                alert('No transactions to generate a PDF.');
+                return;
+            }
+
+            doc.setFontSize(14);
+            doc.text(`Credit Card Bill for ${userName}`, 10, 10);
+            doc.text(`Due Date: ${dueDate}`, 10, 20);
+
+            const tableData = transactions.map((transaction, index) => [
+                index + 1,
+                transaction.name,
+                `₹${transaction.amount.toFixed(2)}`
+            ]);
+
+            doc.autoTable({
+                head: [['#', 'Transaction Name', 'Amount (₹)']],
+                body: tableData,
+                startY: 30,
+            });
+
+            const totalAmount = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+            doc.text(`Total Amount: ₹${totalAmount.toFixed(2)}`, 10, doc.lastAutoTable.finalY + 10);
+
+            doc.save(`${userName}_bill.pdf`);
+        }
+    </script>
+</body>
+</html>
