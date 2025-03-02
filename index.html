@@ -3,178 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Credit Card Bill Calculator</title>
+    <title>Credit & Slice Bill Calculator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f9;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 20px;
-            border-radius: 8px;
-        }
-        h1 {
-            text-align: center;
-            color: #333;
-        }
-        label {
-            display: block;
-            margin: 10px 0 5px;
-            font-weight: bold;
-        }
-        input[type="text"], input[type="number"], input[type="date"] {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            padding: 10px 15px;
-            background-color: #007BFF;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        table, th, td {
-            border: 1px solid #ccc;
-        }
-        th, td {
-            padding: 10px;
-            text-align: left;
-        }
-        .result {
-            margin-top: 20px;
-            font-weight: bold;
-            text-align: right;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); }
+        h1 { text-align: center; color: #333; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input, select { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 10px; margin-top: 10px; background-color: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        .result { font-weight: bold; text-align: right; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Credit Card Bill Calculator</h1>
+        <h1>Credit & Slice Bill Calculator</h1>
+
         <label for="user-name">User Name:</label>
         <input type="text" id="user-name" placeholder="Enter user name">
 
         <label for="due-date">Due Date:</label>
         <input type="date" id="due-date">
 
+        <label for="transaction-category">Select Category:</label>
+        <select id="transaction-category">
+            <option value="credit-card">Credit Card</option>
+            <option value="slice">Slice</option>
+        </select>
+
         <label for="transaction-name">Transaction Name:</label>
         <input type="text" id="transaction-name" placeholder="Enter transaction name">
 
         <label for="transaction-amount">Transaction Amount:</label>
-        <input type="number" id="transaction-amount" placeholder="Enter amount">
+        <input type="number" id="transaction-amount" placeholder="Enter amount (can be negative for refund)">
 
         <button onclick="addTransaction()">Add Transaction</button>
-        <button onclick="printTransactions()">Print Transactions</button>
+        <button onclick="printTransactions()">Show Transactions</button>
         <button onclick="generatePDF()">Download PDF</button>
 
-        <table id="transactions-table" style="display: none;">
+        <h3>Credit Card Transactions</h3>
+        <table id="credit-card-table" style="display: none;">
             <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Transaction Name</th>
-                    <th>Amount (₹)</th>
-                </tr>
+                <tr><th>#</th><th>Month</th><th>Transaction Name</th><th>Amount (₹)</th></tr>
             </thead>
             <tbody></tbody>
         </table>
+        <div id="credit-card-total" class="result"></div>
 
-        <div id="total-amount" class="result"></div>
+        <h3>Slice Transactions</h3>
+        <table id="slice-table" style="display: none;">
+            <thead>
+                <tr><th>#</th><th>Month</th><th>Transaction Name</th><th>Amount (₹)</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div id="slice-total" class="result"></div>
     </div>
 
     <script>
-        const transactions = [];
+        const transactions = { "credit-card": {}, "slice": {} };
 
         function addTransaction() {
             const transactionName = document.getElementById('transaction-name').value;
             const transactionAmount = parseFloat(document.getElementById('transaction-amount').value);
+            const dueDate = document.getElementById('due-date').value;
+            const category = document.getElementById('transaction-category').value;
 
-            if (!transactionName || isNaN(transactionAmount) || transactionAmount <= 0) {
-                alert('Please enter a valid transaction name and amount.');
+            if (!transactionName || isNaN(transactionAmount) || !dueDate) {
+                alert('Please enter valid transaction details.');
                 return;
             }
+            
+            const transactionMonth = dueDate.slice(0, 7);
+            if (!transactions[category][transactionMonth]) {
+                transactions[category][transactionMonth] = [];
+            }
+            transactions[category][transactionMonth].push({ name: transactionName, amount: transactionAmount });
 
-            transactions.push({ name: transactionName, amount: transactionAmount });
-
-            // Clear input fields
             document.getElementById('transaction-name').value = '';
             document.getElementById('transaction-amount').value = '';
         }
 
         function printTransactions() {
-            const table = document.getElementById('transactions-table');
+            updateTable('credit-card');
+            updateTable('slice');
+        }
+
+        function updateTable(category) {
+            const table = document.getElementById(`${category}-table`);
             const tbody = table.querySelector('tbody');
-            tbody.innerHTML = ''; // Clear previous rows
+            tbody.innerHTML = '';
 
-            if (transactions.length === 0) {
-                alert('No transactions to display.');
-                return;
-            }
-
-            transactions.forEach((transaction, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${transaction.name}</td>
-                    <td>₹${transaction.amount.toFixed(2)}</td>
-                `;
-                tbody.appendChild(row);
+            let totalAmount = 0;
+            Object.keys(transactions[category]).forEach(month => {
+                transactions[category][month].forEach((transaction, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${index + 1}</td><td>${month}</td><td>${transaction.name}</td><td style="color: ${transaction.amount < 0 ? 'red' : 'black'}">₹${transaction.amount.toFixed(2)}</td>`;
+                    tbody.appendChild(row);
+                    totalAmount += transaction.amount;
+                });
             });
-
-            const totalAmount = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
-
-            document.getElementById('total-amount').innerText = `Total Amount: ₹${totalAmount.toFixed(2)}`;
+            document.getElementById(`${category}-total`).innerText = `Total: ₹${totalAmount.toFixed(2)}`;
             table.style.display = 'table';
         }
 
-        async function generatePDF() {
+        function generatePDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-
-            const userName = document.getElementById('user-name').value || 'Unnamed User';
-            const dueDate = document.getElementById('due-date').value || 'No Due Date';
-
-            if (transactions.length === 0) {
-                alert('No transactions to generate a PDF.');
-                return;
-            }
-
-            doc.setFontSize(14);
-            doc.text(`Credit Card Bill for ${userName}`, 10, 10);
-            doc.text(`Due Date: ${dueDate}`, 10, 20);
-
-            const tableData = transactions.map((transaction, index) => [
-                index + 1,
-                transaction.name,
-                `₹${transaction.amount.toFixed(2)}`
-            ]);
-
-            doc.autoTable({
-                head: [['#', 'Transaction Name', 'Amount (₹)']],
-                body: tableData,
-                startY: 30,
+            const userName = document.getElementById('user-name').value || 'Unnamed_User';
+            let yPosition = 10;
+            doc.text(`Credit & Slice Bill Report - ${userName}`, 10, yPosition);
+            yPosition += 10;
+            ['credit-card', 'slice'].forEach(category => {
+                doc.text(category.replace('-', ' ').toUpperCase(), 10, yPosition);
+                yPosition += 5;
+                const tableData = [];
+                Object.keys(transactions[category]).forEach(month => {
+                    transactions[category][month].forEach((transaction, index) => {
+                        tableData.push([index + 1, month, transaction.name, `₹${transaction.amount.toFixed(2)}`]);
+                    });
+                });
+                doc.autoTable({
+                    head: [['#', 'Month', 'Transaction', 'Amount']],
+                    body: tableData,
+                    startY: yPosition + 5,
+                });
+                yPosition = doc.lastAutoTable.finalY + 10;
             });
-
-            const totalAmount = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
-            doc.text(`Total Amount: ₹${totalAmount.toFixed(2)}`, 10, doc.lastAutoTable.finalY + 10);
-
             doc.save(`${userName}_bill.pdf`);
         }
     </script>
